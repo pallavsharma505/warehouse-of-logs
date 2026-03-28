@@ -6,3 +6,4 @@ dist/
 .env
 bun.lockb
 database/
+docker.sh

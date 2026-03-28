@@ -1,6 +1,8 @@
 # warehouse-of-logs-client
 
-A lightweight TypeScript/JavaScript client for the [WarehouseOfLogs](https://github.com/warehouse-of-logs) log aggregation service. Supports single and batched log ingestion, automatic flushing, log levels, temporary/persistent logs, and metadata.
+A lightweight TypeScript/JavaScript client for the [WarehouseOfLogs](https://github.com/pallavsharma505/warehouse-of-logs) log aggregation service. Supports single and batched log ingestion, automatic flushing, log levels, temporary/persistent logs, and metadata.
+
+Also available as a [Docker image](https://hub.docker.com/r/pallavsharma505/warehouse-of-logs).
 
 ## Installation
 
