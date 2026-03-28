@@ -1,16 +1,22 @@
 {
   "name": "warehouse-of-logs-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Client library for the WarehouseOfLogs log aggregation service",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["logging", "warehouse-of-logs", "log-aggregation"],
+  "keywords": [
+    "logging",
+    "warehouse-of-logs",
+    "log-aggregation"
+  ],
   "license": "Apache-2.0",
   "devDependencies": {
     "tsup": "^8.0.0",
