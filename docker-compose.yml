@@ -1,0 +1,19 @@
+services:
+  warehouse-of-logs:
+    build: .
+    container_name: warehouse-of-logs
+    restart: unless-stopped
+    ports:
+      - "7001:7001"
+      - "7002:7002"
+      - "7003:7003"
+    environment:
+      COLLECTOR_PORT: "7001"
+      API_PORT: "7002"
+      DATABASE_PATH: "/data/logs.sqlite"
+    volumes:
+      - wol-data:/data
+
+volumes:
+  wol-data:
+    driver: local

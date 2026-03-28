@@ -1,0 +1,18 @@
+{
+  "name": "warehouse-of-logs",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:collector": "bun run --filter @warehouse/collector dev",
+    "dev:api": "bun run --filter @warehouse/api dev",
+    "dev:frontend": "bun run --filter @warehouse/frontend dev",
+    "dev": "bun run dev:collector & bun run dev:api & bun run dev:frontend"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.11",
+    "bun-types": "^1.3.11"
+  }
+}
