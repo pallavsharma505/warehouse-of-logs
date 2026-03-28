@@ -10,6 +10,8 @@ docker run -d \
   -p 7001:7001 \
   -p 7002:7002 \
   -p 7003:7003 \
+  -e ADMIN_USER=admin \
+  -e ADMIN_PASSWORD=changeme \
   -v wol-data:/data \
   pallavsharma505/warehouse-of-logs:latest
 ```
@@ -38,6 +40,8 @@ services:
       COLLECTOR_PORT: "7001"
       API_PORT: "7002"
       DATABASE_PATH: "/data/logs.sqlite"
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "changeme"
     volumes:
       - wol-data:/data
 
@@ -52,25 +56,50 @@ docker compose up -d
 
 ## Environment Variables
 
-| Variable         | Default              | Description                    |
-|------------------|----------------------|--------------------------------|
-| `COLLECTOR_PORT` | `7001`               | Port for the collector service |
-| `API_PORT`       | `7002`               | Port for the API service       |
-| `DATABASE_PATH`  | `/data/logs.sqlite`  | Path to the SQLite database    |
+| Variable         | Default              | Description                                |
+|------------------|----------------------|--------------------------------------------|
+| `ADMIN_USER`     | `admin`              | Username for dashboard and API login       |
+| `ADMIN_PASSWORD` | `admin`              | Password for dashboard and API login       |
+| `COLLECTOR_PORT` | `7001`               | Port for the collector service             |
+| `API_PORT`       | `7002`               | Port for the API service                   |
+| `DATABASE_PATH`  | `/data/logs.sqlite`  | Path to the SQLite database                |
+| `JWT_SECRET`     | *(auto-generated)*   | Secret for signing JWT tokens              |
+
+> **Important:** Change `ADMIN_USER` and `ADMIN_PASSWORD` from the defaults before deploying to production.
 
 ## Usage
 
-### 1. Create an API Key
+### 1. Log In
+
+The dashboard and all API endpoints (except `/health`) require authentication. Open **http://localhost:7003** and sign in with your `ADMIN_USER` and `ADMIN_PASSWORD`.
+
+To authenticate via the API, obtain a JWT token:
+
+```bash
+TOKEN=$(curl -s http://localhost:7002/login -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "changeme"}' | jq -r '.token')
+```
+
+Include the token in subsequent API requests:
+
+```bash
+curl -s http://localhost:7002/logs \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
+### 2. Create an API Key
 
 ```bash
 curl -s http://localhost:7002/keys -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"name": "my-app"}' | jq
 ```
 
 Save the returned `key` — it is shown only once.
 
-### 2. Send Logs
+### 3. Send Logs
 
 ```bash
 curl http://localhost:7001/ingest -X POST \
@@ -83,13 +112,14 @@ curl http://localhost:7001/ingest -X POST \
   }'
 ```
 
-### 3. Query Logs
+### 4. Query Logs
 
 ```bash
-curl http://localhost:7002/logs | jq
+curl -s http://localhost:7002/logs \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
-Or open **http://localhost:7003** for the web dashboard.
+Or open **http://localhost:7003** and sign in to use the web dashboard.
 
 ## Log Ingestion Schema
 
@@ -143,17 +173,18 @@ await logger.shutdown();
 
 ### API (port 7002)
 
-| Method | Endpoint     | Description                       |
-|--------|--------------|-----------------------------------|
-| GET    | `/logs`      | Query logs (filter, search, page) |
-| GET    | `/logs/:id`  | Get a single log entry            |
-| GET    | `/stats`     | Aggregated statistics & charts    |
-| GET    | `/apps`      | List distinct app names           |
-| GET    | `/keys`      | List API keys                     |
-| POST   | `/keys`      | Create a new API key              |
-| PATCH  | `/keys/:id`  | Revoke an API key                 |
-| DELETE | `/keys/:id`  | Delete an API key                 |
-| GET    | `/health`    | Health check                      |
+| Method | Endpoint     | Auth     | Description                       |
+|--------|--------------|----------|-----------------------------------|
+| POST   | `/login`     | None     | Get JWT token with admin creds    |
+| GET    | `/health`    | None     | Health check                      |
+| GET    | `/logs`      | JWT      | Query logs (filter, search, page) |
+| GET    | `/logs/:id`  | JWT      | Get a single log entry            |
+| GET    | `/stats`     | JWT      | Aggregated statistics & charts    |
+| GET    | `/apps`      | JWT      | List distinct app names           |
+| GET    | `/keys`      | JWT      | List API keys                     |
+| POST   | `/keys`      | JWT      | Create a new API key              |
+| PATCH  | `/keys/:id`  | JWT      | Revoke an API key                 |
+| DELETE | `/keys/:id`  | JWT      | Delete an API key                 |
 
 ## Source Code
 
