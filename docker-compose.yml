@@ -11,6 +11,8 @@ services:
       COLLECTOR_PORT: "7001"
       API_PORT: "7002"
       DATABASE_PATH: "/data/logs.sqlite"
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "admin"
     volumes:
       - wol-data:/data
 

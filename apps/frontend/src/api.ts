@@ -1,5 +1,63 @@
 const API_BASE = "/api";
 
+// --- Auth ---
+
+const TOKEN_KEY = "wol_token";
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function isAuthenticated(): boolean {
+  return !!getToken();
+}
+
+async function authFetch(url: string, init?: RequestInit): Promise<Response> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const res = await fetch(url, { ...init, headers });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Session expired");
+  }
+  return res;
+}
+
+export async function login(username: string, password: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Login failed" }));
+    throw new Error(err.error || `Login failed: ${res.status}`);
+  }
+  const data = await res.json();
+  setToken(data.token);
+}
+
+export function logout(): void {
+  clearToken();
+  window.location.href = "/login";
+}
+
+// --- Types ---
+
 export interface LogEntry {
   id: string;
   app_name: string;
@@ -49,13 +107,13 @@ export async function fetchLogs(params: LogsQueryParams): Promise<LogsResponse> 
     }
   }
 
-  const res = await fetch(`${API_BASE}/logs?${searchParams}`);
+  const res = await authFetch(`${API_BASE}/logs?${searchParams}`);
   if (!res.ok) throw new Error(`Failed to fetch logs: ${res.status}`);
   return res.json();
 }
 
 export async function fetchLog(id: string): Promise<LogEntry> {
-  const res = await fetch(`${API_BASE}/logs/${encodeURIComponent(id)}`);
+  const res = await authFetch(`${API_BASE}/logs/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`Failed to fetch log: ${res.status}`);
   return res.json();
 }
@@ -64,13 +122,13 @@ export async function fetchStats(hours = 24, app_name?: string): Promise<StatsRe
   const searchParams = new URLSearchParams({ hours: String(hours) });
   if (app_name) searchParams.set("app_name", app_name);
 
-  const res = await fetch(`${API_BASE}/stats?${searchParams}`);
+  const res = await authFetch(`${API_BASE}/stats?${searchParams}`);
   if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status}`);
   return res.json();
 }
 
 export async function fetchApps(): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/apps`);
+  const res = await authFetch(`${API_BASE}/apps`);
   if (!res.ok) throw new Error(`Failed to fetch apps: ${res.status}`);
   return res.json();
 }
@@ -91,13 +149,13 @@ export interface ApiKeyCreated extends ApiKey {
 }
 
 export async function fetchApiKeys(): Promise<ApiKey[]> {
-  const res = await fetch(`${API_BASE}/keys`);
+  const res = await authFetch(`${API_BASE}/keys`);
   if (!res.ok) throw new Error(`Failed to fetch API keys: ${res.status}`);
   return res.json();
 }
 
 export async function createApiKey(name: string): Promise<ApiKeyCreated> {
-  const res = await fetch(`${API_BASE}/keys`, {
+  const res = await authFetch(`${API_BASE}/keys`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -110,7 +168,7 @@ export async function createApiKey(name: string): Promise<ApiKeyCreated> {
 }
 
 export async function revokeApiKey(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/keys/${encodeURIComponent(id)}/revoke`, {
+  const res = await authFetch(`${API_BASE}/keys/${encodeURIComponent(id)}/revoke`, {
     method: "PATCH",
   });
   if (!res.ok) {
@@ -120,7 +178,7 @@ export async function revokeApiKey(id: string): Promise<void> {
 }
 
 export async function deleteApiKey(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/keys/${encodeURIComponent(id)}`, {
+  const res = await authFetch(`${API_BASE}/keys/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) {

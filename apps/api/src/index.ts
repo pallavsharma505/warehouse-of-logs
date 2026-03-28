@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { sign, verify } from "hono/jwt";
 import { ulid } from "ulid";
 import { getDatabase, initializeSchema } from "@warehouse/db";
 import type { LogRow, ApiKeyRow } from "@warehouse/db";
@@ -9,11 +10,79 @@ const app = new Hono();
 const db = getDatabase();
 initializeSchema(db);
 
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomUUID();
+
 // Enable CORS for frontend
 app.use("*", cors({ origin: "*" }));
 
 // Health check
 app.get("/health", (c) => c.json({ status: "ok", service: "api" }));
+
+// POST /login - Authenticate with admin credentials and get a JWT
+app.post("/login", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const username = body?.username;
+  const password = body?.password;
+
+  if (!username || !password) {
+    return c.json({ error: "Username and password are required" }, 400);
+  }
+
+  // Constant-time-ish comparison via hashing to avoid timing attacks
+  const inputUser = new TextEncoder().encode(username);
+  const inputPass = new TextEncoder().encode(password);
+  const expectedUser = new TextEncoder().encode(ADMIN_USER);
+  const expectedPass = new TextEncoder().encode(ADMIN_PASSWORD);
+
+  const [hashInputU, hashExpectedU, hashInputP, hashExpectedP] = await Promise.all([
+    crypto.subtle.digest("SHA-256", inputUser),
+    crypto.subtle.digest("SHA-256", expectedUser),
+    crypto.subtle.digest("SHA-256", inputPass),
+    crypto.subtle.digest("SHA-256", expectedPass),
+  ]);
+
+  const userMatch =
+    new Uint8Array(hashInputU).every((b, i) => b === new Uint8Array(hashExpectedU)[i]) &&
+    hashInputU.byteLength === hashExpectedU.byteLength;
+  const passMatch =
+    new Uint8Array(hashInputP).every((b, i) => b === new Uint8Array(hashExpectedP)[i]) &&
+    hashInputP.byteLength === hashExpectedP.byteLength;
+
+  if (!userMatch || !passMatch) {
+    return c.json({ error: "Invalid credentials" }, 401);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const token = await sign(
+    { sub: ADMIN_USER, iat: now, exp: now + 86400 },
+    JWT_SECRET
+  );
+
+  return c.json({ token });
+});
+
+// Auth middleware — protect everything below this point
+app.use("*", async (c, next) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+
+  const [scheme, token] = authHeader.split(" ");
+  if (scheme !== "Bearer" || !token) {
+    return c.json({ error: "Invalid Authorization format" }, 401);
+  }
+
+  try {
+    await verify(token, JWT_SECRET, "HS256");
+  } catch {
+    return c.json({ error: "Invalid or expired token" }, 401);
+  }
+
+  await next();
+});
 
 // GET /logs - Query logs with filtering, search, and pagination
 app.get("/logs", (c) => {
