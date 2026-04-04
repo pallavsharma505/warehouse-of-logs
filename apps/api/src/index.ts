@@ -152,6 +152,116 @@ app.get("/logs", (c) => {
   });
 });
 
+// DELETE /logs - Bulk delete logs matching filters
+app.delete("/logs", (c) => {
+  const parsed = logsQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    return c.json(
+      { error: "Invalid query parameters", details: parsed.error.flatten() },
+      400
+    );
+  }
+
+  const { level, app_name, search, from, to } = parsed.data;
+
+  const conditions: string[] = ["(expires_at IS NULL OR expires_at > datetime('now'))"];
+  const params: unknown[] = [];
+
+  if (level) {
+    conditions.push("level = ?");
+    params.push(level);
+  }
+  if (app_name) {
+    conditions.push("app_name = ?");
+    params.push(app_name);
+  }
+  if (search) {
+    conditions.push("message LIKE ?");
+    params.push(`%${search}%`);
+  }
+  if (from) {
+    conditions.push("timestamp >= ?");
+    params.push(from);
+  }
+  if (to) {
+    conditions.push("timestamp <= ?");
+    params.push(to);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const countRow = db
+    .prepare(`SELECT COUNT(*) as total FROM logs ${whereClause}`)
+    .get(...params) as { total: number };
+
+  db.prepare(`DELETE FROM logs ${whereClause}`).run(...params);
+
+  return c.json({ message: "Logs deleted", count: countRow.total });
+});
+
+// GET /logs/export - Export logs as JSONL matching filters
+app.get("/logs/export", (c) => {
+  const parsed = logsQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    return c.json(
+      { error: "Invalid query parameters", details: parsed.error.flatten() },
+      400
+    );
+  }
+
+  const { level, app_name, search, from, to } = parsed.data;
+
+  const conditions: string[] = ["(expires_at IS NULL OR expires_at > datetime('now'))"];
+  const params: unknown[] = [];
+
+  if (level) {
+    conditions.push("level = ?");
+    params.push(level);
+  }
+  if (app_name) {
+    conditions.push("app_name = ?");
+    params.push(app_name);
+  }
+  if (search) {
+    conditions.push("message LIKE ?");
+    params.push(`%${search}%`);
+  }
+  if (from) {
+    conditions.push("timestamp >= ?");
+    params.push(from);
+  }
+  if (to) {
+    conditions.push("timestamp <= ?");
+    params.push(to);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const rows = db
+    .prepare(`SELECT * FROM logs ${whereClause} ORDER BY timestamp DESC`)
+    .all(...params) as LogRow[];
+
+  const lines = rows.map((row) => {
+    const log = {
+      ...row,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      persist: Boolean(row.persist),
+    };
+    return JSON.stringify(log);
+  });
+
+  const body = lines.join("\n") + (lines.length > 0 ? "\n" : "");
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/x-ndjson",
+      "Content-Disposition": `attachment; filename="logs-export-${new Date().toISOString().slice(0, 10)}.jsonl"`,
+    },
+  });
+});
+
 // GET /logs/:id - Get a single log entry
 app.get("/logs/:id", (c) => {
   const id = c.req.param("id");

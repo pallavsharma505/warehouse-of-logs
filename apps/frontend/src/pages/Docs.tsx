@@ -41,6 +41,16 @@ const TOC_ITEMS = [
   { id: "apps", label: "List Applications" },
   { id: "schema", label: "Log Schema" },
   { id: "env", label: "Environment Variables" },
+  { id: "npm-client", label: "npm Client Library" },
+  { id: "npm-install", label: "Installation" },
+  { id: "npm-quickstart", label: "Client Quick Start" },
+  { id: "npm-options", label: "Constructor Options" },
+  { id: "npm-levels", label: "Level Shortcuts" },
+  { id: "npm-log", label: "log() & send()" },
+  { id: "npm-flush", label: "Flushing & Shutdown" },
+  { id: "npm-fields", label: "Log Entry Fields" },
+  { id: "npm-retention", label: "Temp vs Persistent" },
+  { id: "npm-examples", label: "Usage Examples" },
 ];
 
 export default function Docs() {
@@ -372,6 +382,271 @@ bun run dev:frontend     # Dashboard on :7003`}
               </tbody>
             </table>
           </div>
+        </Section>
+
+        {/* npm Client Library Documentation */}
+        <div className="border-t border-gray-700 pt-10 mt-10">
+          <h1 className="text-2xl font-bold text-white mb-1">npm Client Library</h1>
+          <p className="text-gray-400 text-sm mb-6">
+            <a href="https://www.npmjs.com/package/warehouse-of-logs-client" className="text-indigo-400 hover:text-indigo-300" target="_blank" rel="noopener noreferrer">warehouse-of-logs-client</a> — lightweight TypeScript/JavaScript client for log ingestion
+          </p>
+        </div>
+
+        <Section id="npm-client" title="About the Client">
+          <p>
+            A lightweight TypeScript/JavaScript client for the WarehouseOfLogs log
+            aggregation service. Supports single and batched log ingestion,
+            automatic flushing, log levels, temporary/persistent logs, and
+            metadata.
+          </p>
+          <p>
+            Available on{" "}
+            <a href="https://www.npmjs.com/package/warehouse-of-logs-client" className="text-indigo-400 hover:text-indigo-300" target="_blank" rel="noopener noreferrer">npm</a>{" "}
+            and{" "}
+            <a href="https://github.com/pallavsharma505/warehouse-of-logs" className="text-indigo-400 hover:text-indigo-300" target="_blank" rel="noopener noreferrer">GitHub</a>.
+          </p>
+        </Section>
+
+        <Section id="npm-install" title="Installation">
+          <p>Install with npm or Bun:</p>
+          <CodeBlock>{`npm install warehouse-of-logs-client`}</CodeBlock>
+          <CodeBlock>{`bun add warehouse-of-logs-client`}</CodeBlock>
+        </Section>
+
+        <Section id="npm-quickstart" title="Client Quick Start">
+          <CodeBlock>
+{`import { WolClient } from "warehouse-of-logs-client";
+
+const logger = new WolClient({
+  collectorUrl: "http://localhost:7001",
+  apiKey: "wol_your_api_key_here",
+  appName: "my-service",
+});
+
+logger.info("User signed in", { metadata: { userId: "abc123" } });
+logger.error("Payment failed", { metadata: { orderId: 42 } });
+
+// Flush before exiting
+await logger.shutdown();`}
+          </CodeBlock>
+        </Section>
+
+        <Section id="npm-options" title="Constructor Options">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-gray-800 rounded">
+              <thead className="bg-gray-900 text-gray-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">Option</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-left">Default</th>
+                  <th className="px-3 py-2 text-left">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {[
+                  ["collectorUrl", "string", "(required)", "Base URL of the collector service"],
+                  ["apiKey", "string", "(required)", "API key for authentication (Bearer token)"],
+                  ["appName", "string", "—", "Default app_name applied to every log. Can be overridden per entry."],
+                  ["persist", "boolean", "false", "Default retention. false = temporary (auto-expires), true = stored indefinitely."],
+                  ["expiresIn", "number", "—", "Default TTL in seconds for temporary logs. Server default is 86400 (1 day)."],
+                  ["batchSize", "number", "50", "Logs are buffered and sent in batches of this size. Set to 1 to send immediately."],
+                  ["flushInterval", "number", "5000", "Max time in ms before the buffer is auto-flushed."],
+                ].map(([option, type, def, desc]) => (
+                  <tr key={option}>
+                    <td className="px-3 py-2"><InlineCode>{option}</InlineCode></td>
+                    <td className="px-3 py-2 text-gray-400">{type}</td>
+                    <td className="px-3 py-2 text-gray-400">{def}</td>
+                    <td className="px-3 py-2 text-gray-400">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+
+        <Section id="npm-levels" title="Level Shortcuts">
+          <p>The easiest way to log. These buffer logs internally and flush automatically:</p>
+          <CodeBlock>
+{`logger.info("Server started on port 3000");
+logger.warn("Disk usage above 80%");
+logger.error("Unhandled exception in /api/users");
+logger.debug("Cache miss for key session:abc");`}
+          </CodeBlock>
+          <p>All shortcuts accept an optional second argument for metadata, persistence, custom app name, or TTL:</p>
+          <CodeBlock>
+{`logger.info("Order placed", {
+  app_name: "orders-service",  // override default appName
+  metadata: { orderId: 123, total: 59.99 },
+  persist: true,               // keep this log forever
+});
+
+logger.debug("Temp trace", {
+  expires_in: 300,  // auto-delete after 5 minutes
+});`}
+          </CodeBlock>
+        </Section>
+
+        <Section id="npm-log" title="log() & send()">
+          <p>
+            <InlineCode>log(entry)</InlineCode> — Add a log to the buffer with full control over all fields:
+          </p>
+          <CodeBlock>
+{`logger.log({
+  app_name: "worker",
+  level: "ERROR",
+  message: "Job failed after 3 retries",
+  timestamp: new Date().toISOString(),
+  metadata: { jobId: "j-99", queue: "emails" },
+  persist: true,
+});`}
+          </CodeBlock>
+          <p>
+            <InlineCode>send(entry)</InlineCode> — Send a single log <strong className="text-white">immediately</strong>, bypassing the buffer:
+          </p>
+          <CodeBlock>
+{`await logger.send({
+  app_name: "auth-service",
+  level: "ERROR",
+  message: "Critical: database connection lost",
+  persist: true,
+});`}
+          </CodeBlock>
+        </Section>
+
+        <Section id="npm-flush" title="Flushing & Shutdown">
+          <p>Logs are batched in memory and sent when either <InlineCode>batchSize</InlineCode> is reached or <InlineCode>flushInterval</InlineCode> elapses.</p>
+          <CodeBlock>
+{`// Manually flush buffered logs
+const count = await logger.flush();
+console.log(\`Flushed \${count} logs\`);
+
+// Flush + stop the background timer (call before process exit)
+await logger.shutdown();`}
+          </CodeBlock>
+          <p>For graceful shutdowns:</p>
+          <CodeBlock>
+{`process.on("SIGTERM", async () => {
+  await logger.shutdown();
+  process.exit(0);
+});`}
+          </CodeBlock>
+        </Section>
+
+        <Section id="npm-fields" title="Log Entry Fields">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-gray-800 rounded">
+              <thead className="bg-gray-900 text-gray-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">Field</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-left">Required</th>
+                  <th className="px-3 py-2 text-left">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {[
+                  ["app_name", "string", "Yes*", "Source application name. *Optional if appName is set in constructor."],
+                  ["level", "string", "Yes", 'One of: "INFO", "WARN", "ERROR", "DEBUG"'],
+                  ["message", "string", "Yes", "Log message (max 10,000 chars)"],
+                  ["timestamp", "string", "No", "ISO 8601 datetime. Defaults to new Date().toISOString()."],
+                  ["metadata", "object", "No", "Arbitrary JSON key-value data attached to the log"],
+                  ["persist", "boolean", "No", "true = permanent, false = temporary (default)"],
+                  ["expires_in", "number", "No", "TTL in seconds for temporary logs. Server default: 86400 (1 day). Ignored when persist is true."],
+                ].map(([field, type, required, desc]) => (
+                  <tr key={field}>
+                    <td className="px-3 py-2"><InlineCode>{field}</InlineCode></td>
+                    <td className="px-3 py-2 text-gray-400">{type}</td>
+                    <td className="px-3 py-2 text-gray-400">{required}</td>
+                    <td className="px-3 py-2 text-gray-400">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+
+        <Section id="npm-retention" title="Temporary vs Persistent Logs">
+          <p>By default, all logs are <strong className="text-white">temporary</strong> and expire after 1 day. Control at three levels:</p>
+          <CodeBlock>
+{`// 1. Client-wide defaults
+const logger = new WolClient({
+  collectorUrl: "http://localhost:7001",
+  apiKey: "wol_...",
+  appName: "my-app",
+  persist: false,      // default: temporary
+  expiresIn: 3600,     // default: expire after 1 hour
+});
+
+// 2. Per-log override — this one is permanent
+logger.info("Deploy succeeded", { persist: true });
+
+// 3. Per-log TTL — expires in 10 minutes
+logger.debug("Request trace", { expires_in: 600 });`}
+          </CodeBlock>
+          <p>Priority: per-log <InlineCode>persist</InlineCode>/<InlineCode>expires_in</InlineCode> → client defaults → server defaults.</p>
+        </Section>
+
+        <Section id="npm-examples" title="Usage Examples">
+          <p><strong className="text-white">Express Middleware</strong></p>
+          <CodeBlock>
+{`import express from "express";
+import { WolClient } from "warehouse-of-logs-client";
+
+const app = express();
+const logger = new WolClient({
+  collectorUrl: "http://localhost:7001",
+  apiKey: "wol_...",
+  appName: "express-api",
+});
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    logger.info(\`\${req.method} \${req.path} \${res.statusCode}\`, {
+      metadata: {
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        duration_ms: Date.now() - start,
+      },
+    });
+  });
+  next();
+});`}
+          </CodeBlock>
+
+          <p><strong className="text-white">Error Tracking</strong></p>
+          <CodeBlock>
+{`process.on("uncaughtException", async (err) => {
+  await logger.send({
+    app_name: "my-app",
+    level: "ERROR",
+    message: err.message,
+    metadata: { stack: err.stack },
+    persist: true,
+  });
+  process.exit(1);
+});`}
+          </CodeBlock>
+
+          <p><strong className="text-white">Batch Worker</strong></p>
+          <CodeBlock>
+{`const logger = new WolClient({
+  collectorUrl: "http://localhost:7001",
+  apiKey: "wol_...",
+  appName: "batch-worker",
+  batchSize: 200,        // send every 200 logs
+  flushInterval: 10000,  // or every 10 seconds
+  expiresIn: 7200,       // expire after 2 hours
+});
+
+for (const job of jobs) {
+  logger.debug(\`Processing job \${job.id}\`);
+  // ... process job ...
+}
+
+await logger.shutdown();`}
+          </CodeBlock>
         </Section>
       </div>
     </div>

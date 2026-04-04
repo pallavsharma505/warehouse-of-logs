@@ -162,6 +162,8 @@ logger.info("User signed in", { userId: "abc123" });
 await logger.shutdown();
 ```
 
+Full documentation: [warehouse-of-logs-client on npm](https://www.npmjs.com/package/warehouse-of-logs-client)
+
 ## API Endpoints
 
 ### Collector (port 7001)
@@ -173,22 +175,26 @@ await logger.shutdown();
 
 ### API (port 7002)
 
-| Method | Endpoint     | Auth     | Description                       |
-|--------|--------------|----------|-----------------------------------|
-| POST   | `/login`     | None     | Get JWT token with admin creds    |
-| GET    | `/health`    | None     | Health check                      |
-| GET    | `/logs`      | JWT      | Query logs (filter, search, page) |
-| GET    | `/logs/:id`  | JWT      | Get a single log entry            |
-| GET    | `/stats`     | JWT      | Aggregated statistics & charts    |
-| GET    | `/apps`      | JWT      | List distinct app names           |
-| GET    | `/keys`      | JWT      | List API keys                     |
-| POST   | `/keys`      | JWT      | Create a new API key              |
-| PATCH  | `/keys/:id`  | JWT      | Revoke an API key                 |
-| DELETE | `/keys/:id`  | JWT      | Delete an API key                 |
+| Method | Endpoint       | Auth     | Description                            |
+|--------|----------------|----------|----------------------------------------|
+| POST   | `/login`       | None     | Get JWT token with admin creds         |
+| GET    | `/health`      | None     | Health check                           |
+| GET    | `/logs`        | JWT      | Query logs (filter, search, page)      |
+| DELETE | `/logs`        | JWT      | Bulk delete logs matching filters      |
+| GET    | `/logs/export` | JWT      | Export logs as JSONL file              |
+| GET    | `/logs/:id`    | JWT      | Get a single log entry                 |
+| GET    | `/stats`       | JWT      | Aggregated statistics & charts         |
+| GET    | `/apps`        | JWT      | List distinct app names                |
+| GET    | `/keys`        | JWT      | List API keys                          |
+| POST   | `/keys`        | JWT      | Create a new API key                   |
+| PATCH  | `/keys/:id/revoke` | JWT  | Revoke an API key                      |
+| DELETE | `/keys/:id`    | JWT      | Delete an API key                      |
 
 ## Source Code
 
 GitHub: [pallavsharma505/warehouse-of-logs](https://github.com/pallavsharma505/warehouse-of-logs)
+
+npm: [warehouse-of-logs-client](https://www.npmjs.com/package/warehouse-of-logs-client)
 
 ## License
 

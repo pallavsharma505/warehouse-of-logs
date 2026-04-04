@@ -113,19 +113,19 @@ export class WolClient {
 
   // ---- Level shortcuts ----
 
-  info(message: string, meta?: Omit<LogEntry, "level" | "message">): void {
+  info(message: string, meta?: Partial<Omit<LogEntry, "level" | "message">>): void {
     this.log({ level: "INFO", message, app_name: this.appName!, ...meta });
   }
 
-  warn(message: string, meta?: Omit<LogEntry, "level" | "message">): void {
+  warn(message: string, meta?: Partial<Omit<LogEntry, "level" | "message">>): void {
     this.log({ level: "WARN", message, app_name: this.appName!, ...meta });
   }
 
-  error(message: string, meta?: Omit<LogEntry, "level" | "message">): void {
+  error(message: string, meta?: Partial<Omit<LogEntry, "level" | "message">>): void {
     this.log({ level: "ERROR", message, app_name: this.appName!, ...meta });
   }
 
-  debug(message: string, meta?: Omit<LogEntry, "level" | "message">): void {
+  debug(message: string, meta?: Partial<Omit<LogEntry, "level" | "message">>): void {
     this.log({ level: "DEBUG", message, app_name: this.appName!, ...meta });
   }
 

@@ -133,6 +133,43 @@ export async function fetchApps(): Promise<string[]> {
   return res.json();
 }
 
+export async function deleteLogs(params: LogsQueryParams): Promise<{ count: number }> {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && key !== "limit" && key !== "offset") {
+      searchParams.set(key, String(value));
+    }
+  }
+
+  const res = await authFetch(`${API_BASE}/logs?${searchParams}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete logs: ${res.status}`);
+  return res.json();
+}
+
+export async function downloadLogsExport(params: LogsQueryParams): Promise<void> {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && key !== "limit" && key !== "offset") {
+      searchParams.set(key, String(value));
+    }
+  }
+
+  const res = await authFetch(`${API_BASE}/logs/export?${searchParams}`);
+  if (!res.ok) throw new Error(`Failed to export logs: ${res.status}`);
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `logs-export-${new Date().toISOString().slice(0, 10)}.jsonl`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // --- API Key Management ---
 
 export interface ApiKey {
@@ -161,7 +198,7 @@ export async function createApiKey(name: string): Promise<ApiKeyCreated> {
     body: JSON.stringify({ name }),
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Failed to create key: ${res.status}`);
   }
   return res.json();
@@ -172,7 +209,7 @@ export async function revokeApiKey(id: string): Promise<void> {
     method: "PATCH",
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Failed to revoke key: ${res.status}`);
   }
 }
@@ -182,7 +219,7 @@ export async function deleteApiKey(id: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Failed to delete key: ${res.status}`);
   }
 }

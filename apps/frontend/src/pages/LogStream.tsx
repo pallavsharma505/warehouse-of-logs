@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchLogs, fetchApps } from "../api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchLogs, fetchApps, deleteLogs, downloadLogsExport } from "../api";
 import type { LogEntry, LogsQueryParams } from "../api";
 import { useState } from "react";
 
@@ -107,6 +107,10 @@ export default function LogStream() {
   });
   const [search, setSearch] = useState("");
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: apps } = useQuery({
     queryKey: ["apps"],
@@ -129,6 +133,31 @@ export default function LogStream() {
       [key]: value || undefined,
       offset: 0, // Reset pagination on filter change
     }));
+  };
+
+  const handleDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteLogs(queryParams);
+      setShowDeleteConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ["logs"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete logs");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadLogsExport(queryParams);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to download logs");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -193,6 +222,64 @@ export default function LogStream() {
           className="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded px-3 py-1.5"
         />
       </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={handleDownloadAll}
+          disabled={isDownloading || !data?.pagination.total}
+          className="flex items-center gap-2 px-4 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-40 transition-colors"
+        >
+          {isDownloading ? (
+            <>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Downloading...
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3"/></svg>
+              Download All
+            </>
+          )}
+        </button>
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          disabled={isDeleting || !data?.pagination.total}
+          className="flex items-center gap-2 px-4 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white text-sm font-medium disabled:opacity-40 transition-colors"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          Delete All
+        </button>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-md w-full mx-4 space-y-4">
+            <h3 className="text-lg font-semibold text-white">Confirm Delete</h3>
+            <p className="text-gray-300 text-sm">
+              This will permanently delete{" "}
+              <strong className="text-white">{data?.pagination.total?.toLocaleString()}</strong>{" "}
+              log{data?.pagination.total === 1 ? "" : "s"} matching the current filters. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-1.5 rounded bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAll}
+                disabled={isDeleting}
+                className="px-4 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white text-sm font-medium disabled:opacity-40 transition-colors"
+              >
+                {isDeleting ? "Deleting..." : "Delete All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Log Table */}
       <div className="rounded-lg border border-gray-800 overflow-hidden">
